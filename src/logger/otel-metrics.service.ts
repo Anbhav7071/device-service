@@ -15,16 +15,17 @@ export class OtelMetricsService implements OnModuleInit {
   private processUptime: any;
   private readonly startTime: number = Date.now() / 1000;
   // HTTP response duration histogram
-  private httpResponseDuration: any;private cronRunCounter: any;
+  private httpResponseDuration: any;
+  private cronRunCounter: any;
   private cronFailCounter: any;
   private cronSkipCounter: any;
-  private cronDuration: any;  
+  private cronDuration: any;
 
   async onModuleInit(): Promise<void> {
     this.exporter = new PrometheusExporter({
       preventServerStart: false,
       port: parseInt(process.env.METRICS_PORT || '9464', 10),
-      endpoint: process.env.METRICS_ENDPOINT || '/metrics',  //endpoint for the metrics
+      endpoint: process.env.METRICS_ENDPOINT || '/metrics', //endpoint for the metrics
     });
 
     this.meterProvider = new MeterProvider({ readers: [this.exporter] });
@@ -32,21 +33,29 @@ export class OtelMetricsService implements OnModuleInit {
 
     // 2 counters for the metrics
     this.httpResponseTotal = meter.createCounter('http_server_response_total', {
-      description: 'Total number of HTTP server responses classified by status class',
+      description:
+        'Total number of HTTP server responses classified by status class',
       unit: '1',
     });
 
     // Per-organization totals (can include additional labels like method/route)
-    this.httpResponseByOrgTotal = meter.createCounter('http_server_response_by_org_total', {
-      description: 'Total number of HTTP server responses per organization classified by status class',
-      unit: '1',
-    });
+    this.httpResponseByOrgTotal = meter.createCounter(
+      'http_server_response_by_org_total',
+      {
+        description:
+          'Total number of HTTP server responses per organization classified by status class',
+        unit: '1',
+      },
+    );
 
     // Process metrics
-    this.processStartTime = meter.createUpDownCounter('process_start_time_seconds', {
-      description: 'Start time of the process since unix epoch in seconds',
-      unit: 's',
-    });
+    this.processStartTime = meter.createUpDownCounter(
+      'process_start_time_seconds',
+      {
+        description: 'Start time of the process since unix epoch in seconds',
+        unit: 's',
+      },
+    );
 
     this.processUptime = meter.createUpDownCounter('process_uptime_seconds', {
       description: 'Number of seconds since the process started',
@@ -54,10 +63,13 @@ export class OtelMetricsService implements OnModuleInit {
     });
 
     // HTTP response duration histogram
-    this.httpResponseDuration = meter.createHistogram('soundbox_backend_http_response_duration_seconds', {
-      description: 'HTTP response duration in seconds',
-      unit: 's',
-    });
+    this.httpResponseDuration = meter.createHistogram(
+      'soundbox_backend_http_response_duration_seconds',
+      {
+        description: 'HTTP response duration in seconds',
+        unit: 's',
+      },
+    );
 
     // ----- CRON METRICS -----
     this.cronRunCounter = meter.createCounter('cron_runs_total', {
@@ -82,13 +94,19 @@ export class OtelMetricsService implements OnModuleInit {
     this.updateUptime();
   }
 
-  recordHttpStatus(statusCode: number, attributes?: Record<string, string | number | boolean>): void {
+  recordHttpStatus(
+    statusCode: number,
+    attributes?: Record<string, string | number | boolean>,
+  ): void {
     const statusClass = this.toStatusClass(statusCode);
     // Increment global totals (only status_class)
     this.httpResponseTotal.add(1, { status_class: statusClass });
 
     // Increment per-organization totals (include provided attributes like organization_id)
-    const attrs = { ...(attributes || {}) } as Record<string, string | number | boolean>;
+    const attrs = { ...(attributes || {}) } as Record<
+      string,
+      string | number | boolean
+    >;
     const orgId = String(attrs['organization_id'] || '');
     const orgNameAttr = attrs['organization_name'] as string | undefined;
 
@@ -111,28 +129,31 @@ export class OtelMetricsService implements OnModuleInit {
     });
   }
 
-  recordHttpDuration(durationSeconds: number, attributes?: Record<string, string | number | boolean>): void {
+  recordHttpDuration(
+    durationSeconds: number,
+    attributes?: Record<string, string | number | boolean>,
+  ): void {
     try {
       this.httpResponseDuration.record(durationSeconds, attributes || {});
     } catch (error) {
       console.error('[OtelMetrics] Error recording duration:', error);
     }
-  } 
+  }
 
   recordCronRun(cronName: string, duration: number) {
     this.cronRunCounter.add(1, { cron_name: cronName });
     this.cronDuration.record(duration, { cron_name: cronName });
   }
-  
+
   recordCronFailure(cronName: string, duration: number) {
     this.cronFailCounter.add(1, { cron_name: cronName });
     this.cronDuration.record(duration, { cron_name: cronName });
   }
-  
+
   recordCronSkip(cronName: string) {
     this.cronSkipCounter.add(1, { cron_name: cronName });
   }
-  
+
   private toStatusClass(statusCode: number): '2xx' | '3xx' | '4xx' | '5xx' {
     if (statusCode >= 200 && statusCode < 300) return '2xx';
     if (statusCode >= 300 && statusCode < 400) return '3xx';
@@ -141,12 +162,10 @@ export class OtelMetricsService implements OnModuleInit {
   }
 
   private updateUptime(): void {
-    const uptime = (Date.now() / 1000) - this.startTime;
+    const uptime = Date.now() / 1000 - this.startTime;
     this.processUptime.add(uptime);
-    
+
     // Update uptime every 30 seconds
     setTimeout(() => this.updateUptime(), 30000);
   }
 }
-
-

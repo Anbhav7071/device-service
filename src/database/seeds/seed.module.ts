@@ -24,4 +24,4 @@ import { TypeOrmConfigService } from '../typeorm-config.service';
     // Add your seed services here
   ],
 })
-export class SeedModule { }
+export class SeedModule {}

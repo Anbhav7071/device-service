@@ -27,7 +27,7 @@ export class TypeOrmTraceLogger implements Logger {
 
     const logger = this.getLogger();
     const queryName = this.generateQueryName(query);
-    
+
     const tracer = trace.getTracer('soundbox-backend');
     const span = tracer.startSpan(`DB_${queryName}`, {
       attributes: {
@@ -36,13 +36,15 @@ export class TypeOrmTraceLogger implements Logger {
         'db.system': 'postgresql',
         'db.operation': this.getQueryType(query),
         'db.query': this.truncateQuery(query),
-        ...(parameters && { 'db.parameters': JSON.stringify(this.sanitizeParameters(parameters)) }),
+        ...(parameters && {
+          'db.parameters': JSON.stringify(this.sanitizeParameters(parameters)),
+        }),
       },
     });
-    
+
     // Store the span for later finishing
     this.activeSpans.set(queryName, span);
-    
+
     if (logger && logger.debug) {
       const spanContext = span.spanContext();
       const spanId = spanContext.spanId;
@@ -53,7 +55,9 @@ export class TypeOrmTraceLogger implements Logger {
         organizationId: traceContext.organizationId,
         queryName,
         query: this.truncateQuery(query),
-        parameters: parameters ? this.sanitizeParameters(parameters) : undefined,
+        parameters: parameters
+          ? this.sanitizeParameters(parameters)
+          : undefined,
         timings: {
           startTime: new Date().toISOString(),
         },
@@ -71,7 +75,7 @@ export class TypeOrmTraceLogger implements Logger {
 
     const logger = this.getLogger();
     const queryName = this.generateQueryName(query);
-    
+
     // Mark span as error before finishing
     const span = this.activeSpans.get(queryName);
     if (span) {
@@ -86,10 +90,10 @@ export class TypeOrmTraceLogger implements Logger {
         // Ignore errors when setting span error
       }
     }
-    
+
     // Finish the span for this query
     this.finishQuerySpan(queryName);
-    
+
     if (logger && logger.error) {
       const exception: any = { message: error };
       // keep structure similar to function errors
@@ -99,7 +103,9 @@ export class TypeOrmTraceLogger implements Logger {
         organizationId: traceContext.organizationId,
         queryName,
         query: this.truncateQuery(query),
-        parameters: parameters ? this.sanitizeParameters(parameters) : undefined,
+        parameters: parameters
+          ? this.sanitizeParameters(parameters)
+          : undefined,
         exception,
       });
     } else {
@@ -115,17 +121,17 @@ export class TypeOrmTraceLogger implements Logger {
 
     const logger = this.getLogger();
     const queryName = this.generateQueryName(query);
-    
+
     // Add slow query attribute to span before finishing
     const span = this.activeSpans.get(queryName);
     if (span) {
       span.setAttribute('db.query.slow', true);
       span.setAttribute('db.query.duration_ms', time);
     }
-    
+
     // Finish the span for this query
     this.finishQuerySpan(queryName);
-    
+
     if (logger && logger.warn) {
       logger.warn('Database_query_slow', {
         traceId: TraceContextService.getTraceId(),
@@ -133,7 +139,9 @@ export class TypeOrmTraceLogger implements Logger {
         organizationId: traceContext.organizationId,
         queryName,
         query: this.truncateQuery(query),
-        parameters: parameters ? this.sanitizeParameters(parameters) : undefined,
+        parameters: parameters
+          ? this.sanitizeParameters(parameters)
+          : undefined,
         timings: {
           duration: time,
         },
@@ -167,7 +175,7 @@ export class TypeOrmTraceLogger implements Logger {
     }
 
     const logger = this.getLogger();
-    
+
     if (logger && logger[level === 'info' ? 'log' : level]) {
       logger[level === 'info' ? 'log' : level](`Database_${level}`, {
         traceId: TraceContextService.getTraceId(),
@@ -202,25 +210,30 @@ export class TypeOrmTraceLogger implements Logger {
   }
 
   private getTableName(query: string): string {
-    const match = query.match(/FROM\s+["`]?(\w+)["`]?/i) || 
-                  query.match(/INTO\s+["`]?(\w+)["`]?/i) ||
-                  query.match(/UPDATE\s+["`]?(\w+)["`]?/i) ||
-                  query.match(/DELETE\s+FROM\s+["`]?(\w+)["`]?/i);
+    const match =
+      query.match(/FROM\s+["`]?(\w+)["`]?/i) ||
+      query.match(/INTO\s+["`]?(\w+)["`]?/i) ||
+      query.match(/UPDATE\s+["`]?(\w+)["`]?/i) ||
+      query.match(/DELETE\s+FROM\s+["`]?(\w+)["`]?/i);
     return match ? match[1] : 'UnknownTable';
   }
 
   private truncateQuery(query: string): string {
-    return query.length > 500 ? query.substring(0, 500) + '...[TRUNCATED]' : query;
+    return query.length > 500
+      ? query.substring(0, 500) + '...[TRUNCATED]'
+      : query;
   }
 
   private sanitizeParameters(parameters: any[]): any[] {
-    return parameters.map(param => {
+    return parameters.map((param) => {
       if (typeof param === 'string') {
         // Check if it looks like sensitive data
-        if (param.length > 50 || 
-            param.includes('password') || 
-            param.includes('token') ||
-            param.includes('secret')) {
+        if (
+          param.length > 50 ||
+          param.includes('password') ||
+          param.includes('token') ||
+          param.includes('secret')
+        ) {
           return '[REDACTED]';
         }
       }
@@ -228,4 +241,3 @@ export class TypeOrmTraceLogger implements Logger {
     });
   }
 }
-

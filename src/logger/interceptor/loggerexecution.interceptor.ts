@@ -18,7 +18,6 @@ import { OtelMetricsService } from '../otel-metrics.service';
 
 export const LOG_EXECUTION_KEY = 'LOG_EXECUTION'; // Replaced external dependency so developers can customize
 
-
 @Injectable()
 export class LogExecutionInterceptor implements NestInterceptor {
   constructor(
@@ -26,8 +25,7 @@ export class LogExecutionInterceptor implements NestInterceptor {
     private readonly logger: CustomLoggerService,
     private readonly metrics: OtelMetricsService,
     // [PLACEHOLDER] Developer can inject custom contextual resolvers here instead of hardcoding business services
-  ) { }
-
+  ) {}
 
   private getStatusClass(statusCode: number): string {
     if (statusCode >= 200 && statusCode < 300) return '2xx';
@@ -41,7 +39,7 @@ export class LogExecutionInterceptor implements NestInterceptor {
       const base = req.baseUrl || '';
       const path = req.route?.path || '';
       if (path) return `${base}${path}`.replace(/\/?\?.*$/, '');
-    } catch { }
+    } catch {}
     // [PLACEHOLDER] Developer can customize route normalization logic here
     return rawUrl.split('?')[0] || rawUrl;
   }
@@ -58,7 +56,7 @@ export class LogExecutionInterceptor implements NestInterceptor {
       const localsOrgId = req?.res?.locals?.organizationId;
       const localsOrgName = req?.res?.locals?.organizationName;
 
-      let orgName =
+      const orgName =
         localsOrgName ||
         req?.user?.organizationName ||
         req?.user?.organization?.name ||
@@ -87,10 +85,7 @@ export class LogExecutionInterceptor implements NestInterceptor {
   // ---------------------------------------
   // MAIN INTERCEPTOR
   // ---------------------------------------
-  intercept(
-    context: ExecutionContext,
-    next: CallHandler,
-  ): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const handler = context.getHandler();
     const classRef = context.getClass();
 
@@ -136,13 +131,15 @@ export class LogExecutionInterceptor implements NestInterceptor {
       activeSpan.setAttribute('organization.id', organizationId || 'unknown');
       // Events must have primitive values only (strings, numbers, booleans)
       activeSpan.addEvent('app.request.start', {
-        'method': String(method),
-        'url': String(url),
+        method: String(method),
+        url: String(url),
       });
     } else {
       // Fallback: only for non-HTTP contexts (cron jobs, etc.)
       // In normal HTTP requests, auto-instrumentation should always provide a span
-      console.warn('[Interceptor] No active span - auto-instrumentation may not be working');
+      console.warn(
+        '[Interceptor] No active span - auto-instrumentation may not be working',
+      );
     }
 
     // Set headers for downstream services
@@ -184,7 +181,6 @@ export class LogExecutionInterceptor implements NestInterceptor {
       this.recordMetrics(res.statusCode, method, url, organizationId, req),
     );
 
-
     return otelContext.with(activeCtx || otelContext.active(), () => {
       return next.handle().pipe(
         tap((data) => {
@@ -205,7 +201,10 @@ export class LogExecutionInterceptor implements NestInterceptor {
           // Add attributes/events to existing span (DO NOT end it)
           if (currentSpan) {
             currentSpan.setAttribute('http.status_code', statusCode);
-            currentSpan.setAttribute('app.response.organization_id', finalOrgId || 'unknown');
+            currentSpan.setAttribute(
+              'app.response.organization_id',
+              finalOrgId || 'unknown',
+            );
 
             if (statusCode >= 400) {
               currentSpan.setStatus({
@@ -216,8 +215,8 @@ export class LogExecutionInterceptor implements NestInterceptor {
 
             // Events must have primitive values only (strings, numbers, booleans)
             currentSpan.addEvent('app.response.success', {
-              'statusCode': String(statusCode),
-              'durationMs': String(Math.round(totalMs)),
+              statusCode: String(statusCode),
+              durationMs: String(Math.round(totalMs)),
             });
           }
 
@@ -247,7 +246,9 @@ export class LogExecutionInterceptor implements NestInterceptor {
 
         catchError((err) => {
           if (err instanceof EntityPropertyNotFoundError) {
-            err = new BadRequestException(`Invalid filter field: ${err.message}`);
+            err = new BadRequestException(
+              `Invalid filter field: ${err.message}`,
+            );
           }
           const endTimeIso = new Date().toISOString();
 
@@ -264,8 +265,8 @@ export class LogExecutionInterceptor implements NestInterceptor {
             currentSpan.setAttribute('http.status_code', err.status || 500);
             // Events must have primitive values only (strings, numbers, booleans)
             currentSpan.addEvent('app.response.error', {
-              'error': String(err.message),
-              'status': String(err.status || 500),
+              error: String(err.message),
+              status: String(err.status || 500),
             });
           }
 
