@@ -4,7 +4,7 @@ import { context, trace } from '@opentelemetry/api';
 
 export interface LogContext {
   [key: string]: any; // for the log context
-  traceId?: string; // for the trace id in the log      
+  traceId?: string; // for the trace id in the log
   spanId?: string; // for the span id in the log
   userId?: string; // for the user id in the log
   requestId?: string; // for the request id in the log
@@ -51,20 +51,29 @@ export class CustomLoggerService implements NestLoggerService {
     this.logMessage('verbose', message, context); // for logging the message
   }
 
-  private logMessage(level: string, message: string, context: LogContext = {}): void { // for logging the message
+  private logMessage(
+    level: string,
+    message: string,
+    context: LogContext = {},
+  ): void {
+    // for logging the message
     if (!this.shouldLog(level)) {
       return; // for not logging the message
     }
 
     const sanitizedContext = this.sanitizeContext(context); // for sanitizing the context
-    const structuredLog = this.createStructuredLog(level, message, sanitizedContext); // for creating the structured log
+    const structuredLog = this.createStructuredLog(
+      level,
+      message,
+      sanitizedContext,
+    ); // for creating the structured log
 
     if (this.config.enableConsole) {
       this.logToConsole(level, structuredLog); // for logging the message to the console
     }
 
     if (this.config.enableOpenTelemetry) {
-      this.logToOpenTelemetry(level, structuredLog); // for logging the message to the open telemetry   
+      this.logToOpenTelemetry(level, structuredLog); // for logging the message to the open telemetry
     }
   }
 
@@ -79,17 +88,21 @@ export class CustomLoggerService implements NestLoggerService {
     const sanitized = { ...context }; // for creating the sanitized context
 
     // Sanitize known sensitive fields
-    this.config.sanitizeFields.forEach(field => {
+    this.config.sanitizeFields.forEach((field) => {
       if (sanitized[field]) {
         sanitized[field] = '[REDACTED]'; // for sanitizing the field
       }
     });
 
     // Sanitize using regex patterns
-    Object.keys(sanitized).forEach(key => { // for sanitizing the object
+    Object.keys(sanitized).forEach((key) => {
+      // for sanitizing the object
       if (typeof sanitized[key] === 'string') {
         sanitized[key] = this.sanitizeString(sanitized[key]); // for sanitizing the string
-      } else if (typeof sanitized[key] === 'object' && sanitized[key] !== null) {
+      } else if (
+        typeof sanitized[key] === 'object' &&
+        sanitized[key] !== null
+      ) {
         sanitized[key] = this.sanitizeObject(sanitized[key]); // for sanitizing the object
       }
     });
@@ -101,13 +114,14 @@ export class CustomLoggerService implements NestLoggerService {
     if (typeof value !== 'string') return value; // for returning the value if it is not a string
 
     let sanitized = value;
-    this.config.sensitivePatterns.forEach(pattern => {
+    this.config.sensitivePatterns.forEach((pattern) => {
       sanitized = sanitized.replace(pattern, '[REDACTED]'); // for sanitizing the string
     });
 
     // Truncate if too long
     if (sanitized.length > this.config.maxLogLength) {
-      sanitized = sanitized.substring(0, this.config.maxLogLength) + '...[TRUNCATED]'; // for truncating the string
+      sanitized =
+        sanitized.substring(0, this.config.maxLogLength) + '...[TRUNCATED]'; // for truncating the string
     }
 
     return sanitized; // for returning the sanitized string
@@ -117,13 +131,13 @@ export class CustomLoggerService implements NestLoggerService {
     if (obj === null || typeof obj !== 'object') return obj; // for returning the object if it is not an object
 
     if (Array.isArray(obj)) {
-      return obj.map(item => this.sanitizeObject(item)); // for sanitizing the object
+      return obj.map((item) => this.sanitizeObject(item)); // for sanitizing the object
     }
 
-    const sanitized: any = {}; // for creating the sanitized object     
-    Object.keys(obj).forEach(key => {
+    const sanitized: any = {}; // for creating the sanitized object
+    Object.keys(obj).forEach((key) => {
       const value = obj[key]; // for getting the value of the key
-      if (this.config.sensitivePatterns.some(pattern => pattern.test(key))) {
+      if (this.config.sensitivePatterns.some((pattern) => pattern.test(key))) {
         sanitized[key] = '[REDACTED]'; // for sanitizing the key
       } else if (typeof value === 'string') {
         sanitized[key] = this.sanitizeString(value); // for sanitizing the string
@@ -137,15 +151,20 @@ export class CustomLoggerService implements NestLoggerService {
     return sanitized;
   }
 
-  private createStructuredLog(level: string, message: string, context: LogContext): StructuredLogEntry {
+  private createStructuredLog(
+    level: string,
+    message: string,
+    context: LogContext,
+  ): StructuredLogEntry {
     const activeSpan = trace.getActiveSpan(); // for getting the active span
     const otelTraceId = activeSpan?.spanContext().traceId; // for getting the trace id
     const otelSpanId = activeSpan?.spanContext().spanId; // for getting the span id
 
     // Prefer explicitly provided trace/span from context if present; otherwise use active span
-    const finalTraceId = context.traceId || (otelTraceId ? `0x${otelTraceId}` : undefined);
-    const finalSpanId = context.spanId || (otelSpanId ? `0x${otelSpanId}` : undefined);
-
+    const finalTraceId =
+      context.traceId || (otelTraceId ? `0x${otelTraceId}` : undefined);
+    const finalSpanId =
+      context.spanId || (otelSpanId ? `0x${otelSpanId}` : undefined);
 
     return {
       timestamp: this.getTimestamp(), // for the timestamp in the log
@@ -196,7 +215,10 @@ export class CustomLoggerService implements NestLoggerService {
     }
   }
 
-  private logToOpenTelemetry(level: string, logEntry: StructuredLogEntry): void {
+  private logToOpenTelemetry(
+    level: string,
+    logEntry: StructuredLogEntry,
+  ): void {
     // OpenTelemetry logging integration
     // This would typically send logs to your observability backend
     // For now, we'll just ensure the context is properly set
@@ -204,7 +226,7 @@ export class CustomLoggerService implements NestLoggerService {
     if (activeSpan) {
       // Filter context to only include primitive values (OTEL requires primitives for event attributes)
       const primitiveContext: Record<string, string | number | boolean> = {};
-      Object.keys(logEntry.context).forEach(key => {
+      Object.keys(logEntry.context).forEach((key) => {
         const value = logEntry.context[key];
         // Only include primitive values (string, number, boolean)
         // Skip complex objects like request, response, timings
@@ -233,5 +255,4 @@ export class CustomLoggerService implements NestLoggerService {
       });
     }
   }
-
 }

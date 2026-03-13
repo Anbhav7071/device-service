@@ -9,7 +9,8 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
   constructor(private configService: ConfigService<AllConfigType>) {}
 
   createTypeOrmOptions(): TypeOrmModuleOptions {
-    const isDev = this.configService.get('app.nodeEnv', { infer: true }) !== 'production';
+    const isDev =
+      this.configService.get('app.nodeEnv', { infer: true }) !== 'production';
     return {
       type: this.configService.get('database.type', { infer: true }),
       url: this.configService.get('database.url', { infer: true }),

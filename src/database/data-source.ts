@@ -11,7 +11,6 @@ dotenv.config();
 // (Some environments during ts-node/TypeORM CLI may not expose globalThis.crypto)
 if (!(global as any).crypto) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { webcrypto } = require('crypto');
     (global as any).crypto = webcrypto;
   } catch (_) {
